@@ -1,0 +1,47 @@
+# One pod, one container
+# Asking for 1 IB PF with admin access (baremetal use case)
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ib-test3
+
+---
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  namespace: ib-test3
+  name: ib-pf-admin
+spec:
+  spec:
+    devices:
+      requests:
+      - name: ib
+        exactly:
+          deviceClassName: ib.sigs.k8s.io
+          selectors:
+          - cel:
+              expression: "device.attributes['type'].stringValue == 'PF'"
+          adminAccess: true
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: ib-test3
+  name: pod0
+  labels:
+    app: pod
+spec:
+  containers:
+  - name: ctr0
+    image: ubuntu:22.04
+    command: ["bash", "-c"]
+    args: ["export; trap 'exit 0' TERM; sleep 9999 & wait"]
+    resources:
+      claims:
+      - name: ib
+  resourceClaims:
+  - name: ib
+    resourceClaimTemplateName: ib-pf-admin

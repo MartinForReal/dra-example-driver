@@ -45,7 +45,7 @@ cmd-%: COMMAND_BUILD_OPTIONS = -o $(PREFIX)/$(*)
 endif
 cmds: $(CMD_TARGETS)
 $(CMD_TARGETS): cmd-%:
-	CGO_LDFLAGS_ALLOW='-Wl,--unresolved-symbols=ignore-in-object-files' GOOS=$(GOOS) \
+	CGO_ENABLED=1 CGO_LDFLAGS_ALLOW='-Wl,--unresolved-symbols=ignore-in-object-files' GOOS=$(GOOS) \
 		go build -ldflags "-s -w -X main.version=$(VERSION)" $(COMMAND_BUILD_OPTIONS) $(MODULE)/cmd/$(*)
 
 build:
@@ -55,7 +55,7 @@ examples: $(EXAMPLE_TARGETS)
 $(EXAMPLE_TARGETS): example-%:
 	GOOS=$(GOOS) go build ./examples/$(*)
 
-all: check test build binary
+all: check test build binaries
 check: $(CHECK_TARGETS)
 
 # Apply go fmt to the codebase

@@ -16,22 +16,36 @@ ARG GOLANG_VERSION=undefined
 ARG BASE_IMAGE=undefined
 FROM golang:${GOLANG_VERSION} as build
 
+# Install libibverbs-dev for cgo compilation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libibverbs-dev \
+    librdmacm-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /build
 COPY . .
 
 RUN mkdir /artifacts
-RUN make PREFIX=/artifacts cmds
+RUN CGO_ENABLED=1 make PREFIX=/artifacts cmds
 
 FROM ${BASE_IMAGE}
 
-LABEL io.k8s.display-name="Example Resource Driver for Dynamic Resource Allocation (DRA)"
-LABEL name="Example Resource Driver for Dynamic Resource Allocation (DRA)"
-LABEL vendor="example.com"
+# Install runtime dependencies for RDMA and network namespace management
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libibverbs1 \
+    librdmacm1 \
+    rdma-core \
+    iproute2 \
+    && rm -rf /var/lib/apt/lists/*
+
+LABEL io.k8s.display-name="InfiniBand DRA Resource Driver for Dynamic Resource Allocation"
+LABEL name="InfiniBand DRA Resource Driver for Dynamic Resource Allocation"
+LABEL vendor="sigs.k8s.io"
 ARG VERSION="N/A"
 LABEL version=${VERSION}
 ARG RELEASE="N/A"
 LABEL release="N/A"
-LABEL summary="Example DRA resource driver for Kubernetes"
+LABEL summary="InfiniBand DRA resource driver for Kubernetes"
 LABEL description="See summary"
 
 COPY --from=build /artifacts/dra-example-kubeletplugin /usr/bin/dra-example-kubeletplugin

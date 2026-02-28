@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Kubernetes Authors.
+ * Copyright The Kubernetes Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,6 @@
  */
 
 // +k8s:deepcopy-gen=package
-// +groupName=gpu.resource.example.com
+// +groupName=ib.resource.sigs.k8s.io
 
 package v1alpha1

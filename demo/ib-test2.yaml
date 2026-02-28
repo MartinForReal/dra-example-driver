@@ -1,0 +1,54 @@
+# One pod, one container
+# Asking for 1 IB VF with custom pkey and MTU configuration
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ib-test2
+
+---
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  namespace: ib-test2
+  name: ib-vf-custom-config
+spec:
+  spec:
+    devices:
+      requests:
+      - name: ib
+        exactly:
+          deviceClassName: ib.sigs.k8s.io
+          selectors:
+          - cel:
+              expression: "device.attributes['type'].stringValue == 'VF'"
+      config:
+      - opaque:
+          driver: ib.sigs.k8s.io
+          parameters:
+            apiVersion: ib.resource.sigs.k8s.io/v1alpha1
+            kind: IbConfig
+            pkey: 32769     # 0x8001 - limited membership partition key
+            mtu: 4096
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: ib-test2
+  name: pod0
+  labels:
+    app: pod
+spec:
+  containers:
+  - name: ctr0
+    image: ubuntu:22.04
+    command: ["bash", "-c"]
+    args: ["export; trap 'exit 0' TERM; sleep 9999 & wait"]
+    resources:
+      claims:
+      - name: ib
+  resourceClaims:
+  - name: ib
+    resourceClaimTemplateName: ib-vf-custom-config

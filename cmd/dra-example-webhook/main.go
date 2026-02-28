@@ -35,7 +35,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/dra-example-driver/internal/profiles"
-	"sigs.k8s.io/dra-example-driver/internal/profiles/gpu"
+	"sigs.k8s.io/dra-example-driver/internal/profiles/ib"
 	"sigs.k8s.io/dra-example-driver/pkg/flags"
 )
 
@@ -52,7 +52,7 @@ type Flags struct {
 type validator func(runtime.Object) error
 
 var validProfiles = map[string]profiles.ConfigHandler{
-	gpu.ProfileName: gpu.Profile{},
+	ib.ProfileName: ib.Profile{},
 }
 
 func main() {
@@ -88,7 +88,7 @@ func newApp() *cli.App {
 		&cli.StringFlag{
 			Name:        "device-profile",
 			Usage:       fmt.Sprintf("Name of the device profile. Valid values are %q.", validProfiles),
-			Value:       gpu.ProfileName,
+			Value:       ib.ProfileName,
 			Destination: &flags.profile,
 			EnvVars:     []string{"DEVICE_PROFILE"},
 		},
@@ -124,7 +124,7 @@ func newApp() *cli.App {
 			}
 
 			if flags.driverName == "" {
-				flags.driverName = flags.profile + ".example.com"
+				flags.driverName = flags.profile + ".sigs.k8s.io"
 			}
 
 			mux, err := newMux(configHandler, flags.driverName)

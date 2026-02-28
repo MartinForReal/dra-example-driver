@@ -1,31 +1,34 @@
 # Two pods, one container each
-# Each container asking for 1 distinct GPU
+# Each container asking for 1 distinct IB VF device
 
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: gpu-test1
+  name: ib-test1
 
 ---
 apiVersion: resource.k8s.io/v1
 kind: ResourceClaimTemplate
 metadata:
-  namespace: gpu-test1
-  name: single-gpu
+  namespace: ib-test1
+  name: single-ib-vf
 spec:
   spec:
     devices:
       requests:
-      - name: gpu
+      - name: ib
         exactly:
-          deviceClassName: gpu.example.com
+          deviceClassName: ib.sigs.k8s.io
+          selectors:
+          - cel:
+              expression: "device.attributes['type'].stringValue == 'VF'"
 
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  namespace: gpu-test1
+  namespace: ib-test1
   name: pod0
   labels:
     app: pod
@@ -37,16 +40,16 @@ spec:
     args: ["export; trap 'exit 0' TERM; sleep 9999 & wait"]
     resources:
       claims:
-      - name: gpu
+      - name: ib
   resourceClaims:
-  - name: gpu
-    resourceClaimTemplateName: single-gpu
+  - name: ib
+    resourceClaimTemplateName: single-ib-vf
 
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  namespace: gpu-test1
+  namespace: ib-test1
   name: pod1
   labels:
     app: pod
@@ -58,7 +61,7 @@ spec:
     args: ["export; trap 'exit 0' TERM; sleep 9999 & wait"]
     resources:
       claims:
-      - name: gpu
+      - name: ib
   resourceClaims:
-  - name: gpu
-    resourceClaimTemplateName: single-gpu
+  - name: ib
+    resourceClaimTemplateName: single-ib-vf

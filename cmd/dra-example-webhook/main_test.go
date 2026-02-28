@@ -34,12 +34,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/ptr"
 
-	configapi "sigs.k8s.io/dra-example-driver/api/example.com/resource/gpu/v1alpha1"
-	"sigs.k8s.io/dra-example-driver/internal/profiles/gpu"
+	configapi "sigs.k8s.io/dra-example-driver/api/example.com/resource/ib/v1alpha1"
+	"sigs.k8s.io/dra-example-driver/internal/profiles/ib"
 )
 
-const driverName = "gpu.example.com"
+const driverName = "ib.sigs.k8s.io"
 
 func TestReadyEndpoint(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(readyHandler))
@@ -57,31 +58,18 @@ func TestResourceClaimValidatingWebhook(t *testing.T) {
 		Resource: "unknownresources",
 	}
 
-	validGPUConfig := &configapi.GpuConfig{
-		Sharing: &configapi.GpuSharing{
-			Strategy: configapi.TimeSlicingStrategy,
-			TimeSlicingConfig: &configapi.TimeSlicingConfig{
-				Interval: configapi.DefaultTimeSlice,
-			},
-		},
+	validIbConfig := &configapi.IbConfig{
+		Pkey:         ptr.To(uint16(0x8001)),
+		TrafficClass: ptr.To(uint8(0)),
+		MTU:          ptr.To(configapi.MTU4096),
 	}
 
-	invalidGPUConfigs := []*configapi.GpuConfig{
+	invalidIbConfigs := []*configapi.IbConfig{
 		{
-			Sharing: &configapi.GpuSharing{
-				Strategy: configapi.TimeSlicingStrategy,
-				TimeSlicingConfig: &configapi.TimeSlicingConfig{
-					Interval: "InvalidInterval",
-				},
-			},
+			Pkey: ptr.To(uint16(0)),
 		},
 		{
-			Sharing: &configapi.GpuSharing{
-				Strategy: configapi.SpacePartitioningStrategy,
-				SpacePartitioningConfig: &configapi.SpacePartitioningConfig{
-					PartitionCount: -1,
-				},
-			},
+			MTU: ptr.To(configapi.IbMTU(9999)),
 		},
 	}
 
@@ -100,69 +88,69 @@ func TestResourceClaimValidatingWebhook(t *testing.T) {
 			admissionReview:      &admissionv1.AdmissionReview{},
 			expectedResponseCode: http.StatusBadRequest,
 		},
-		"valid GpuConfig in ResourceClaim": {
+		"valid IbConfig in ResourceClaim": {
 			admissionReview: admissionReviewWithObject(
-				resourceClaimWithGpuConfigs(validGPUConfig),
+				resourceClaimWithIbConfigs(validIbConfig),
 				resourceClaimResourceV1,
 			),
 			expectedAllowed: true,
 		},
-		"invalid GpuConfigs in ResourceClaim": {
+		"invalid IbConfigs in ResourceClaim": {
 			admissionReview: admissionReviewWithObject(
-				resourceClaimWithGpuConfigs(invalidGPUConfigs...),
+				resourceClaimWithIbConfigs(invalidIbConfigs...),
 				resourceClaimResourceV1,
 			),
 			expectedAllowed: false,
-			expectedMessage: "2 configs failed to validate: object at spec.devices.config[0].opaque.parameters is invalid: unknown time-slice interval: InvalidInterval; object at spec.devices.config[1].opaque.parameters is invalid: invalid partition count: -1",
+			expectedMessage: "2 configs failed to validate: object at spec.devices.config[0].opaque.parameters is invalid: invalid IbConfig: pkey must be in range 0x0001-0xFFFF, got 0x0000; object at spec.devices.config[1].opaque.parameters is invalid: invalid IbConfig: invalid IB MTU value: 9999, must be one of 256, 512, 1024, 2048, 4096",
 		},
-		"valid GpuConfig in ResourceClaimTemplate": {
+		"valid IbConfig in ResourceClaimTemplate": {
 			admissionReview: admissionReviewWithObject(
-				resourceClaimTemplateWithGpuConfigs(validGPUConfig),
+				resourceClaimTemplateWithIbConfigs(validIbConfig),
 				resourceClaimTemplateResourceV1,
 			),
 			expectedAllowed: true,
 		},
-		"invalid GpuConfigs in ResourceClaimTemplate": {
+		"invalid IbConfigs in ResourceClaimTemplate": {
 			admissionReview: admissionReviewWithObject(
-				resourceClaimTemplateWithGpuConfigs(invalidGPUConfigs...),
+				resourceClaimTemplateWithIbConfigs(invalidIbConfigs...),
 				resourceClaimTemplateResourceV1,
 			),
 			expectedAllowed: false,
-			expectedMessage: "2 configs failed to validate: object at spec.spec.devices.config[0].opaque.parameters is invalid: unknown time-slice interval: InvalidInterval; object at spec.spec.devices.config[1].opaque.parameters is invalid: invalid partition count: -1",
+			expectedMessage: "2 configs failed to validate: object at spec.spec.devices.config[0].opaque.parameters is invalid: invalid IbConfig: pkey must be in range 0x0001-0xFFFF, got 0x0000; object at spec.spec.devices.config[1].opaque.parameters is invalid: invalid IbConfig: invalid IB MTU value: 9999, must be one of 256, 512, 1024, 2048, 4096",
 		},
-		"valid GpuConfig in ResourceClaim v1beta1": {
+		"valid IbConfig in ResourceClaim v1beta1": {
 			admissionReview: admissionReviewWithObject(
-				toResourceClaimV1Beta1(resourceClaimWithGpuConfigs(validGPUConfig)),
+				toResourceClaimV1Beta1(resourceClaimWithIbConfigs(validIbConfig)),
 				resourceClaimResourceV1Beta1,
 			),
 			expectedAllowed: true,
 		},
-		"invalid GpuConfigs in ResourceClaim v1beta1": {
+		"invalid IbConfigs in ResourceClaim v1beta1": {
 			admissionReview: admissionReviewWithObject(
-				toResourceClaimV1Beta1(resourceClaimWithGpuConfigs(invalidGPUConfigs...)),
+				toResourceClaimV1Beta1(resourceClaimWithIbConfigs(invalidIbConfigs...)),
 				resourceClaimResourceV1Beta1,
 			),
 			expectedAllowed: false,
-			expectedMessage: "2 configs failed to validate: object at spec.devices.config[0].opaque.parameters is invalid: unknown time-slice interval: InvalidInterval; object at spec.devices.config[1].opaque.parameters is invalid: invalid partition count: -1",
+			expectedMessage: "2 configs failed to validate: object at spec.devices.config[0].opaque.parameters is invalid: invalid IbConfig: pkey must be in range 0x0001-0xFFFF, got 0x0000; object at spec.devices.config[1].opaque.parameters is invalid: invalid IbConfig: invalid IB MTU value: 9999, must be one of 256, 512, 1024, 2048, 4096",
 		},
-		"valid GpuConfig in ResourceClaimTemplate v1beta1": {
+		"valid IbConfig in ResourceClaimTemplate v1beta1": {
 			admissionReview: admissionReviewWithObject(
-				toResourceClaimTemplateV1Beta1(resourceClaimTemplateWithGpuConfigs(validGPUConfig)),
+				toResourceClaimTemplateV1Beta1(resourceClaimTemplateWithIbConfigs(validIbConfig)),
 				resourceClaimTemplateResourceV1Beta1,
 			),
 			expectedAllowed: true,
 		},
-		"invalid GpuConfigs in ResourceClaimTemplate v1beta1": {
+		"invalid IbConfigs in ResourceClaimTemplate v1beta1": {
 			admissionReview: admissionReviewWithObject(
-				toResourceClaimTemplateV1Beta1(resourceClaimTemplateWithGpuConfigs(invalidGPUConfigs...)),
+				toResourceClaimTemplateV1Beta1(resourceClaimTemplateWithIbConfigs(invalidIbConfigs...)),
 				resourceClaimTemplateResourceV1Beta1,
 			),
 			expectedAllowed: false,
-			expectedMessage: "2 configs failed to validate: object at spec.spec.devices.config[0].opaque.parameters is invalid: unknown time-slice interval: InvalidInterval; object at spec.spec.devices.config[1].opaque.parameters is invalid: invalid partition count: -1",
+			expectedMessage: "2 configs failed to validate: object at spec.spec.devices.config[0].opaque.parameters is invalid: invalid IbConfig: pkey must be in range 0x0001-0xFFFF, got 0x0000; object at spec.spec.devices.config[1].opaque.parameters is invalid: invalid IbConfig: invalid IB MTU value: 9999, must be one of 256, 512, 1024, 2048, 4096",
 		},
 		"unknown resource type": {
 			admissionReview: admissionReviewWithObject(
-				resourceClaimWithGpuConfigs(validGPUConfig),
+				resourceClaimWithIbConfigs(validIbConfig),
 				unknownResource,
 			),
 			expectedAllowed: false,
@@ -170,7 +158,7 @@ func TestResourceClaimValidatingWebhook(t *testing.T) {
 		},
 	}
 
-	configHandler := gpu.Profile{}
+	configHandler := ib.Profile{}
 	mux, err := newMux(configHandler, driverName)
 	assert.NoError(t, err)
 
@@ -226,38 +214,38 @@ func admissionReviewWithObject(obj runtime.Object, resource metav1.GroupVersionR
 	return requestedAdmissionReview
 }
 
-func resourceClaimWithGpuConfigs(gpuConfigs ...*configapi.GpuConfig) *resourceapi.ResourceClaim {
+func resourceClaimWithIbConfigs(ibConfigs ...*configapi.IbConfig) *resourceapi.ResourceClaim {
 	resourceClaim := &resourceapi.ResourceClaim{
-		Spec: resourceClaimSpecWithGpuConfigs(gpuConfigs...),
+		Spec: resourceClaimSpecWithIbConfigs(ibConfigs...),
 	}
 	resourceClaim.SetGroupVersionKind(resourceapi.SchemeGroupVersion.WithKind("ResourceClaim"))
 	return resourceClaim
 }
 
-func resourceClaimTemplateWithGpuConfigs(gpuConfigs ...*configapi.GpuConfig) *resourceapi.ResourceClaimTemplate {
+func resourceClaimTemplateWithIbConfigs(ibConfigs ...*configapi.IbConfig) *resourceapi.ResourceClaimTemplate {
 	resourceClaimTemplate := &resourceapi.ResourceClaimTemplate{
 		Spec: resourceapi.ResourceClaimTemplateSpec{
-			Spec: resourceClaimSpecWithGpuConfigs(gpuConfigs...),
+			Spec: resourceClaimSpecWithIbConfigs(ibConfigs...),
 		},
 	}
 	resourceClaimTemplate.SetGroupVersionKind(resourceapi.SchemeGroupVersion.WithKind("ResourceClaimTemplate"))
 	return resourceClaimTemplate
 }
 
-func resourceClaimSpecWithGpuConfigs(gpuConfigs ...*configapi.GpuConfig) resourceapi.ResourceClaimSpec {
+func resourceClaimSpecWithIbConfigs(ibConfigs ...*configapi.IbConfig) resourceapi.ResourceClaimSpec {
 	resourceClaimSpec := resourceapi.ResourceClaimSpec{}
-	for _, gpuConfig := range gpuConfigs {
-		gpuConfig.SetGroupVersionKind(schema.GroupVersionKind{
+	for _, ibConfig := range ibConfigs {
+		ibConfig.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   configapi.GroupName,
 			Version: configapi.Version,
-			Kind:    "GpuConfig",
+			Kind:    "IbConfig",
 		})
 		deviceConfig := resourceapi.DeviceClaimConfiguration{
 			DeviceConfiguration: resourceapi.DeviceConfiguration{
 				Opaque: &resourceapi.OpaqueDeviceConfiguration{
 					Driver: driverName,
 					Parameters: runtime.RawExtension{
-						Object: gpuConfig,
+						Object: ibConfig,
 					},
 				},
 			},

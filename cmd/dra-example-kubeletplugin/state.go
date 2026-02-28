@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"sync"
@@ -50,8 +51,8 @@ type DeviceState struct {
 	configHandler     profiles.ConfigHandler
 }
 
-func NewDeviceState(config *Config) (*DeviceState, error) {
-	driverResources, err := config.profile.EnumerateDevices()
+func NewDeviceState(ctx context.Context, config *Config) (*DeviceState, error) {
+	driverResources, err := config.profile.EnumerateDevices(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error enumerating all possible devices: %v", err)
 	}
@@ -207,7 +208,7 @@ func (s *DeviceState) prepareDevices(claim *resourceapi.ResourceClaim) (profiles
 		return nil, fmt.Errorf("error getting opaque device configs: %v", err)
 	}
 
-	// Add the default GPU Config to the front of the config list with the
+	// Add the default Config to the front of the config list with the
 	// lowest precedence. This guarantees there will be at least one config in
 	// the list with len(Requests) == 0 for the lookup below.
 	configs = slices.Insert(configs, 0, &OpaqueDeviceConfig{})

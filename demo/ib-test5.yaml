@@ -1,34 +1,34 @@
 # One pod, one container
-# Asking for 2 distinct GPUs
+# Asking for 1 IB device with active port only (scheduling-time health filter)
 
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: gpu-test2
+  name: ib-test5
 
 ---
 apiVersion: resource.k8s.io/v1
 kind: ResourceClaimTemplate
 metadata:
-  namespace: gpu-test2
-  name: multiple-gpus
+  namespace: ib-test5
+  name: ib-active-port
 spec:
   spec:
     devices:
       requests:
-      - name: gpu-1
+      - name: ib
         exactly:
-          deviceClassName: gpu.example.com
-      - name: gpu-2
-        exactly:
-          deviceClassName: gpu.example.com
+          deviceClassName: ib.sigs.k8s.io
+          selectors:
+          - cel:
+              expression: "device.attributes['portState'].stringValue == 'Active'"
 
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  namespace: gpu-test2
+  namespace: ib-test5
   name: pod0
   labels:
     app: pod
@@ -40,7 +40,7 @@ spec:
     args: ["export; trap 'exit 0' TERM; sleep 9999 & wait"]
     resources:
       claims:
-      - name: gpus
+      - name: ib
   resourceClaims:
-  - name: gpus
-    resourceClaimTemplateName: multiple-gpus
+  - name: ib
+    resourceClaimTemplateName: ib-active-port

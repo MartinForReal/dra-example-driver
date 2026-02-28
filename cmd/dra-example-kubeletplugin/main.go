@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -32,7 +33,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/dra-example-driver/internal/profiles"
-	"sigs.k8s.io/dra-example-driver/internal/profiles/gpu"
+	"sigs.k8s.io/dra-example-driver/internal/profiles/ib"
 	"sigs.k8s.io/dra-example-driver/pkg/flags"
 )
 
@@ -46,7 +47,7 @@ type Flags struct {
 
 	nodeName                      string
 	cdiRoot                       string
-	numDevices                    int
+	numVFs                        int
 	kubeletRegistrarDirectoryPath string
 	kubeletPluginsDirectoryPath   string
 	healthcheckPort               int
@@ -63,8 +64,8 @@ type Config struct {
 }
 
 var validProfiles = map[string]func(flags Flags) profiles.Profile{
-	gpu.ProfileName: func(flags Flags) profiles.Profile {
-		return gpu.NewProfile(flags.nodeName, flags.numDevices)
+	ib.ProfileName: func(flags Flags) profiles.Profile {
+		return ib.NewProfile(flags.nodeName, flags.numVFs)
 	},
 }
 
@@ -107,11 +108,11 @@ func newApp() *cli.App {
 			EnvVars:     []string{"CDI_ROOT"},
 		},
 		&cli.IntFlag{
-			Name:        "num-devices",
-			Usage:       "The number of devices to be generated. Only relevant for the " + gpu.ProfileName + " profile.",
-			Value:       8,
-			Destination: &flags.numDevices,
-			EnvVars:     []string{"NUM_DEVICES"},
+			Name:        "num-vfs",
+			Usage:       "Number of SR-IOV VFs to pre-create per PF at startup (0 = no auto-provisioning, i.e., VM mode).",
+			Value:       0,
+			Destination: &flags.numVFs,
+			EnvVars:     []string{"NUM_VFS"},
 		},
 		&cli.StringFlag{
 			Name:        "kubelet-registrar-directory-path",
@@ -137,7 +138,7 @@ func newApp() *cli.App {
 		&cli.StringFlag{
 			Name:        "device-profile",
 			Usage:       fmt.Sprintf("Name of the device profile. Valid values are %q.", validProfileNames),
-			Value:       gpu.ProfileName,
+			Value:       ib.ProfileName,
 			Destination: &flags.profile,
 			EnvVars:     []string{"DEVICE_PROFILE"},
 		},
@@ -158,7 +159,7 @@ func newApp() *cli.App {
 		HideHelpCommand: true,
 		Flags:           cliFlags,
 		Before: func(c *cli.Context) error {
-			if c.Args().Len() > 0 {
+			if c.Args().Len() > 0 && c.Args().First() != "move-netdev" {
 				return fmt.Errorf("arguments not supported: %v", c.Args().Slice())
 			}
 			return flags.loggingConfig.Apply()
@@ -171,7 +172,7 @@ func newApp() *cli.App {
 			}
 
 			if flags.driverName == "" {
-				flags.driverName = flags.profile + ".example.com"
+				flags.driverName = flags.profile + ".sigs.k8s.io"
 			}
 
 			newProfile, ok := validProfiles[flags.profile]
@@ -187,9 +188,52 @@ func newApp() *cli.App {
 
 			return RunPlugin(ctx, config)
 		},
+		Commands: []*cli.Command{
+			moveNetdevCommand(),
+		},
 	}
 
 	return app
+}
+
+// ociState represents the minimal OCI runtime state passed to hooks on stdin.
+type ociState struct {
+	Pid int `json:"pid"`
+}
+
+// moveNetdevCommand returns the CLI subcommand used as a CDI createRuntime hook
+// to move the IB netdev (and RDMA device) into the container's network namespace.
+func moveNetdevCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "move-netdev",
+		Usage:     "CDI hook helper: move an IB netdev into a container's network namespace",
+		Hidden:    true,
+		ArgsUsage: " ",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "ib-dev",
+				Usage:    "The IB device name (e.g. mlx5_0) whose netdev(s) to move.",
+				Required: true,
+			},
+		},
+		Action: func(c *cli.Context) error {
+			ctx := c.Context
+			logger := klog.FromContext(ctx)
+			ibDevName := c.String("ib-dev")
+
+			// OCI runtimes pass the container state as JSON on stdin.
+			var state ociState
+			if err := json.NewDecoder(os.Stdin).Decode(&state); err != nil {
+				return fmt.Errorf("decode OCI state from stdin: %w", err)
+			}
+			if state.Pid == 0 {
+				return fmt.Errorf("container PID is 0 — cannot move netdev")
+			}
+
+			logger.Info("CDI hook: moving netdev into container netns", "ibDev", ibDevName, "containerPID", state.Pid)
+			return ib.MoveNetdevHookHelper(ctx, ibDevName, state.Pid)
+		},
+	}
 }
 
 func RunPlugin(ctx context.Context, config *Config) error {

@@ -29,6 +29,7 @@ spec:
       {{- if .Values.kubeletPlugin.priorityClassName }}
       priorityClassName: {{ .Values.kubeletPlugin.priorityClassName }}
       {{- end }}
+      hostNetwork: true
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -77,9 +78,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        # Simulated number of devices the example driver will pretend to have.
-        - name: NUM_DEVICES
-          value: {{ .Values.kubeletPlugin.numDevices | quote }}
+        - name: NUM_VFS
+          value: {{ .Values.kubeletPlugin.numVFs | quote }}
         {{- if .Values.kubeletPlugin.containers.plugin.healthcheckPort }}
         - name: HEALTHCHECK_PORT
           value: {{ .Values.kubeletPlugin.containers.plugin.healthcheckPort | quote }}
@@ -91,6 +91,10 @@ spec:
           mountPath: {{ .Values.kubeletPlugin.kubeletPluginsDirectoryPath | quote }}
         - name: cdi
           mountPath: /var/run/cdi
+        - name: sys
+          mountPath: /sys
+        - name: dev-infiniband
+          mountPath: /dev/infiniband
       volumes:
       - name: plugins-registry
         hostPath:
@@ -101,6 +105,13 @@ spec:
       - name: cdi
         hostPath:
           path: /var/run/cdi
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: dev-infiniband
+        hostPath:
+          path: /dev/infiniband
+          type: DirectoryOrCreate
       {{- with .Values.kubeletPlugin.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
