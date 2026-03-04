@@ -29,7 +29,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - sigs.k8s.io/dra-example-driver
+        - github.com/kubernetes-sigs/dra-example-driver
   exclusions:
     generated: lax
     paths:

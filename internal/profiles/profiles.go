@@ -17,6 +17,7 @@
 package profiles
 
 import (
+	"context"
 	"errors"
 
 	resourceapi "k8s.io/api/resource/v1"
@@ -47,7 +48,7 @@ func (pds PreparedDevices) GetDevices() []*drapbv1.Device {
 // Profile describes a kind of device that can be managed by the driver.
 type Profile interface {
 	ConfigHandler
-	EnumerateDevices() (resourceslice.DriverResources, error)
+	EnumerateDevices(ctx context.Context) (resourceslice.DriverResources, error)
 }
 
 // ConfigHandler handles opaque configuration set for requests in ResourceClaims.

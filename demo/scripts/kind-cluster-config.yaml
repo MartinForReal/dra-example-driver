@@ -9,6 +9,8 @@ containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri"]
     enable_cdi = true
+  [plugins."io.containerd.nri.v1.nri"]
+    disable = false
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
