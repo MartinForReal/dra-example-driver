@@ -35,7 +35,7 @@ MAKE_TARGETS := binaries build check fmt test examples cmds coverage generate $(
 TARGETS := $(MAKE_TARGETS) $(CMD_TARGETS)
 
 DOCKER_TARGETS := $(patsubst %,docker-%, $(TARGETS))
-.PHONY: $(TARGETS) $(DOCKER_TARGETS)
+.PHONY: $(TARGETS) $(DOCKER_TARGETS) clean
 
 GOOS ?= linux
 
@@ -45,7 +45,7 @@ cmd-%: COMMAND_BUILD_OPTIONS = -o $(PREFIX)/$(*)
 endif
 cmds: $(CMD_TARGETS)
 $(CMD_TARGETS): cmd-%:
-	CGO_LDFLAGS_ALLOW='-Wl,--unresolved-symbols=ignore-in-object-files' GOOS=$(GOOS) \
+	CGO_ENABLED=1 CGO_LDFLAGS_ALLOW='-Wl,--unresolved-symbols=ignore-in-object-files' GOOS=$(GOOS) \
 		go build -ldflags "-s -w -X main.version=$(VERSION)" $(COMMAND_BUILD_OPTIONS) $(MODULE)/cmd/$(*)
 
 build:
@@ -55,8 +55,14 @@ examples: $(EXAMPLE_TARGETS)
 $(EXAMPLE_TARGETS): example-%:
 	GOOS=$(GOOS) go build ./examples/$(*)
 
-all: check test build binary
+all: check test build binaries
 check: $(CHECK_TARGETS)
+
+clean:
+	go clean -cache -testcache
+	rm -f -- $(COVERAGE_FILE) $(COVERAGE_FILE).no-mocks logcheck fmt.out
+	rm -rf -- $(DIST_DIR)
+	rm -rf -- $(CURDIR)/.cache/go $(CURDIR)/.cache/gopath 2>/dev/null || true
 
 # Apply go fmt to the codebase
 fmt:

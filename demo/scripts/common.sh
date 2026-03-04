@@ -23,10 +23,10 @@
 SCRIPTS_DIR="$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)"
 
 # The name of the example driver
-: ${DRIVER_NAME:=dra-example-driver}
+: ${DRIVER_NAME:=dra-infiniband-driver}
 
 # The registry, image and tag for the example driver
-: ${DRIVER_IMAGE_REGISTRY:="registry.k8s.io/dra-example-driver"}
+: ${DRIVER_IMAGE_REGISTRY:="registry.k8s.io/dra-infiniband-driver"}
 : ${DRIVER_IMAGE_NAME:="${DRIVER_NAME}"}
 : ${DRIVER_IMAGE_TAG:="$(cat $(git rev-parse --show-toplevel)/deployments/helm/${DRIVER_NAME}/Chart.yaml | grep appVersion | sed 's/"//g' | sed -n 's/^appVersion: //p')"}
 : ${DRIVER_IMAGE_PLATFORM:="ubuntu22.04"}

@@ -29,7 +29,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - sigs.k8s.io/dra-example-driver
+        - github.com/MartinForReal/dra-infiniband-driver
   exclusions:
     generated: lax
     paths:

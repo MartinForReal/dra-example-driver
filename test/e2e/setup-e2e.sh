@@ -32,8 +32,9 @@ helm upgrade -i \
 
 helm upgrade -i \
   --create-namespace \
-  --namespace dra-example-driver \
+  --namespace dra-infiniband-driver \
   --set webhook.enabled=true \
-  --set kubeletPlugin.numDevices=9 \
-  dra-example-driver \
-  deployments/helm/dra-example-driver
+  --set kubeletPlugin.numVFs=0 \
+  --set kubeletPlugin.numSimDevices=9 \
+  dra-infiniband-driver \
+  deployments/helm/dra-infiniband-driver

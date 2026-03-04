@@ -1,0 +1,47 @@
+# One pod, one container
+# Asking for 1 IB VF (previously tested with custom pkey/MTU config;
+# now using DRANET framework which handles device config at the network level)
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ib-test2
+
+---
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  namespace: ib-test2
+  name: ib-vf-custom-config
+spec:
+  spec:
+    devices:
+      requests:
+      - name: ib
+        exactly:
+          deviceClassName: ib.sigs.k8s.io
+          selectors:
+          - cel:
+              expression: "device.attributes['dra.net'].ibType == 'VF'"
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: ib-test2
+  name: pod0
+  labels:
+    app: pod
+spec:
+  containers:
+  - name: ctr0
+    image: ubuntu:22.04
+    command: ["bash", "-c"]
+    args: ["export; trap 'exit 0' TERM; sleep 9999 & wait"]
+    resources:
+      claims:
+      - name: ib
+  resourceClaims:
+  - name: ib
+    resourceClaimTemplateName: ib-vf-custom-config

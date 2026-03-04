@@ -1,0 +1,67 @@
+# Two pods, one container each
+# Each container asking for 1 distinct IB VF device
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ib-test1
+
+---
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  namespace: ib-test1
+  name: single-ib-vf
+spec:
+  spec:
+    devices:
+      requests:
+      - name: ib
+        exactly:
+          deviceClassName: ib.sigs.k8s.io
+          selectors:
+          - cel:
+              expression: "device.attributes['dra.net'].ibType == 'VF'"
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: ib-test1
+  name: pod0
+  labels:
+    app: pod
+spec:
+  containers:
+  - name: ctr0
+    image: ubuntu:22.04
+    command: ["bash", "-c"]
+    args: ["export; trap 'exit 0' TERM; sleep 9999 & wait"]
+    resources:
+      claims:
+      - name: ib
+  resourceClaims:
+  - name: ib
+    resourceClaimTemplateName: single-ib-vf
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: ib-test1
+  name: pod1
+  labels:
+    app: pod
+spec:
+  containers:
+  - name: ctr0
+    image: ubuntu:22.04
+    command: ["bash", "-c"]
+    args: ["export; trap 'exit 0' TERM; sleep 9999 & wait"]
+    resources:
+      claims:
+      - name: ib
+  resourceClaims:
+  - name: ib
+    resourceClaimTemplateName: single-ib-vf

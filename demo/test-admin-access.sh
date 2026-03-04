@@ -37,27 +37,27 @@ fi
 echo "✅ Kubernetes cluster is accessible"
 
 # Apply the demo
-echo "📦 Applying gpu-test7.yaml demo..."
-kubectl apply -f demo/gpu-test7.yaml
+echo "📦 Applying ib-test3.yaml demo (PF with admin access)..."
+kubectl apply -f demo/ib-test3.yaml
 
 echo "⏳ Waiting for pod to be ready..."
-kubectl wait --for=condition=Ready pod/pod0 -n gpu-test7 --timeout=120s || true
+kubectl wait --for=condition=Ready pod/pod0 -n ib-test3 --timeout=120s || true
 
 echo
 echo "=== Pod Status ==="
-kubectl get pods -n gpu-test7
+kubectl get pods -n ib-test3
 
 echo
 echo "=== ResourceClaims Status ==="
-kubectl get resourceclaims -n gpu-test7
+kubectl get resourceclaims -n ib-test3
 
 echo
 echo "=== Pod0 Logs (showing admin access demo) ==="
-kubectl logs pod0 -n gpu-test7 || echo "⚠️  Pod0 logs not ready yet"
+kubectl logs pod0 -n ib-test3 || echo "⚠️  Pod0 logs not ready yet"
 
 echo
 echo "=== Checking DRA_ADMIN_ACCESS Environment Variable ==="
-DRA_ADMIN_ACCESS_POD0=$(kubectl exec pod0 -n gpu-test7 -- printenv DRA_ADMIN_ACCESS 2>/dev/null || echo "not found")
+DRA_ADMIN_ACCESS_POD0=$(kubectl exec pod0 -n ib-test3 -- printenv DRA_ADMIN_ACCESS 2>/dev/null || echo "not found")
 
 if [[ "$DRA_ADMIN_ACCESS_POD0" == "true" ]]; then
   echo "✅ Pod0: DRA_ADMIN_ACCESS=$DRA_ADMIN_ACCESS_POD0"
@@ -67,4 +67,4 @@ fi
 
 echo
 echo "=== Test Complete ==="
-echo "To clean up, run: kubectl delete namespace gpu-test7"
+echo "To clean up, run: kubectl delete namespace ib-test3"

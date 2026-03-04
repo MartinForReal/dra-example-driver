@@ -1,0 +1,125 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "dra-infiniband-driver.fullname" . }}-kubeletplugin
+  namespace: {{ include "dra-infiniband-driver.namespace" . }}
+  labels:
+    {{- include "dra-infiniband-driver.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kubeletplugin
+spec:
+  selector:
+    matchLabels:
+      {{- include "dra-infiniband-driver.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: kubeletplugin
+  {{- with .Values.kubeletPlugin.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      {{- with .Values.kubeletPlugin.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "dra-infiniband-driver.templateLabels" . | nindent 8 }}
+        app.kubernetes.io/component: kubeletplugin
+    spec:
+      {{- if .Values.kubeletPlugin.priorityClassName }}
+      priorityClassName: {{ .Values.kubeletPlugin.priorityClassName }}
+      {{- end }}
+      hostNetwork: true
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "dra-infiniband-driver.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.kubeletPlugin.podSecurityContext | nindent 8 }}
+      containers:
+      - name: plugin
+        securityContext:
+          {{- toYaml .Values.kubeletPlugin.containers.plugin.securityContext | nindent 10 }}
+        image: {{ include "dra-infiniband-driver.fullimage" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["dra-ib-kubeletplugin"]
+        resources:
+          {{- toYaml .Values.kubeletPlugin.containers.plugin.resources | nindent 10 }}
+        {{/*
+          A literal "0" will allocate a random port. Don't configure the probe
+          with the same literal "0" since that won't match where the service is
+          actually running.
+        */}}
+        {{- if (gt (int .Values.kubeletPlugin.containers.plugin.healthcheckPort) 0) }}
+        livenessProbe:
+          grpc:
+            port: {{ .Values.kubeletPlugin.containers.plugin.healthcheckPort }}
+            service: liveness
+          failureThreshold: 3
+          periodSeconds: 10
+        {{- end }}
+        env:
+        - name: DRIVER_NAME
+          value: {{ include "dra-infiniband-driver.driverName" . | quote }}
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: NUM_VFS
+          value: {{ .Values.kubeletPlugin.numVFs | quote }}
+        - name: NUM_SIM_DEVICES
+          value: {{ .Values.kubeletPlugin.numSimDevices | quote }}
+        volumeMounts:
+        - name: plugins-registry
+          mountPath: /var/lib/kubelet/plugins_registry
+        - name: plugins
+          mountPath: /var/lib/kubelet/plugins
+        - name: cdi
+          mountPath: /var/run/cdi
+        - name: sys
+          mountPath: /sys
+        - name: dev-infiniband
+          mountPath: /dev/infiniband
+        - name: nri-socket
+          mountPath: /var/run/nri
+        - name: run-netns
+          mountPath: /var/run/netns
+          mountPropagation: HostToContainer
+      volumes:
+      - name: plugins-registry
+        hostPath:
+          path: /var/lib/kubelet/plugins_registry
+      - name: plugins
+        hostPath:
+          path: /var/lib/kubelet/plugins
+      - name: cdi
+        hostPath:
+          path: /var/run/cdi
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: dev-infiniband
+        hostPath:
+          path: /dev/infiniband
+          type: DirectoryOrCreate
+      - name: nri-socket
+        hostPath:
+          path: /var/run/nri
+          type: DirectoryOrCreate
+      - name: run-netns
+        hostPath:
+          path: /var/run/netns
+          type: DirectoryOrCreate
+      {{- with .Values.kubeletPlugin.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kubeletPlugin.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kubeletPlugin.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
